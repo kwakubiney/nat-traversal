@@ -43,6 +43,11 @@ func (c *Client) StartClient() error {
 		return fmt.Errorf("could not marshal heartbeat message: %w", err)
 	}
 
+	_, err = c.ConnToServer.Write(heartbeatMessage)
+	if err != nil {
+		return fmt.Errorf("could not send initial request to server: %w", err)
+	}
+
 	errChForHeartbeat := make(chan error)
 	errChForServerRequest := make(chan error)
 	go func() {
