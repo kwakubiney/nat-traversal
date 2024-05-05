@@ -18,7 +18,6 @@ func main() {
 	var isServer bool
 
 	flag.StringVar(&clientConfig.DestinationAddress, "s", "64.226.68.23:1234", "server address")
-	flag.StringVar(&clientConfig.LocalAddress, "ip", ":4500", "The IP address (with subnet) to assign to the connection")
 	flag.StringVar(&serverConfig.LocalAddress, "l", "1234", "local address")
 	flag.StringVar(&clientConfig.NetworkName, "n", "A", "network you want to connect to")
 	flag.BoolVar(&isServer, "srv", false, "server mode")
@@ -44,16 +43,7 @@ func main() {
 		server.Start()
 
 	} else {
-		localAddr, err := net.ResolveUDPAddr("udp", clientConfig.LocalAddress)
-		if err != nil {
-			log.Printf("error resolving local address: %v", err)
-		}
-		remoteAddr, err := net.ResolveUDPAddr("udp", clientConfig.DestinationAddress)
-		if err != nil {
-			log.Printf("error resolving local address: %v", err)
-		}
-
-		conn, err := net.DialUDP("udp", localAddr, remoteAddr)
+		conn, err := net.Dial("udp", clientConfig.DestinationAddress)
 		if err != nil {
 			log.Printf("error dialing server: %v", err)
 		}
