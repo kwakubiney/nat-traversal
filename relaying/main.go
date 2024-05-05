@@ -40,7 +40,7 @@ func main() {
 			log.Printf("error starting server: %v", err)
 		}
 		var server = NewServer(serverConfig, 5*time.Second, serverConn)
-		go server.Start()
+		server.Start()
 
 	} else {
 		conn, err := net.Dial("udp", clientConfig.DestinationAddress)
