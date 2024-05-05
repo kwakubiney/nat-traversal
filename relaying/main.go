@@ -48,6 +48,7 @@ func main() {
 			log.Printf("error dialing server: %v", err)
 		}
 		var client = NewClient(clientConfig, 200*time.Second, conn)
+		
 		err = client.StartClient()
 		if err != nil {
 			log.Printf("error starting client: %v", err)

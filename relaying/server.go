@@ -31,8 +31,8 @@ func NewServer(config ServerConfig, duration time.Duration, conn *net.UDPConn) S
 
 func (s *Server) Start() {
 	fmt.Println("Listening for connections...")
+	defer s.Stop()
 	for {
-		defer s.Stop()
 		buf := make([]byte, 1500)
 		n, addr, err := s.ServerListenConn.ReadFromUDP(buf)
 		buf = buf[:n]
@@ -78,6 +78,7 @@ func (s *Server) addAddress(networkName string, addr *net.UDPAddr) bool {
 		}
 	}
 	//Add AddrPort if we have never seen it before
+	log.Printf("New peer for network %s detected: %v:%d", networkName, addr.IP.To4(), addr.Port)
 	s.NetworkTopology[networkName] = append(s.NetworkTopology[networkName], addr.AddrPort())
 	return true
 }
