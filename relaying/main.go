@@ -4,8 +4,10 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 )
@@ -32,17 +34,24 @@ func main() {
 	}()
 
 	if isServer {
-		var server = NewServer(serverConfig, 5*time.Second)
-		err := server.Start()
+		localAddress, _ := strconv.Atoi(serverConfig.LocalAddress)
+		serverConn, err := net.ListenUDP("udp", &net.UDPAddr{Port: localAddress})
 		if err != nil {
 			log.Printf("error starting server: %v", err)
 		}
+		var server = NewServer(serverConfig, 5*time.Second, serverConn)
+		server.Start()
+
 	} else {
-		var client = NewClient(clientConfig, 5*time.Second)
-		err := client.StartClient()
+		conn, err := net.Dial("udp", clientConfig.DestinationAddress)
+		if err != nil {
+			log.Printf("error dialing server: %v", err)
+		}
+		var client = NewClient(clientConfig, 200*time.Second, conn)
+
+		err = client.StartClient()
 		if err != nil {
 			log.Printf("error starting client: %v", err)
 		}
 	}
-
 }
