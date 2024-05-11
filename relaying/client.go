@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"net/netip"
+	"slices"
 	"time"
 )
 
 type Client struct {
-	NetworkName     string
+	ConnToServer    net.Conn
 	Duration        time.Duration
+	NetworkMap      []netip.AddrPort
 	PeerConnections []net.Conn
 	Config          ClientConfig
 }
@@ -19,50 +22,64 @@ type Heartbeat struct {
 	NetworkName string
 }
 
-func NewClient(config ClientConfig, duration time.Duration) Client {
+func NewClient(config ClientConfig, duration time.Duration, conn net.Conn) Client {
 	return Client{
+		ConnToServer:    conn,
 		Config:          config,
 		PeerConnections: []net.Conn{},
 		Duration:        duration,
+		NetworkMap:      make([]netip.AddrPort, 0),
 	}
 }
 
 func (c *Client) StartClient() error {
-	conn, err := net.Dial("udp", c.Config.DestinationAddress)
-	if err != nil {
-		return fmt.Errorf("could not connect to remote server: %w", err)
-	}
 	tickerForHeartbeat := time.NewTicker(c.Duration)
-	defer conn.Close()
+	defer c.Stop()
 	defer tickerForHeartbeat.Stop()
 
-	heartbeatMessage, err := json.Marshal(Heartbeat{NetworkName: c.NetworkName})
+	heartbeatMessage, err := json.Marshal(Heartbeat{NetworkName: c.Config.NetworkName})
 
 	if err != nil {
 		return fmt.Errorf("could not marshal heartbeat message: %w", err)
 	}
 
+	_, err = c.ConnToServer.Write(heartbeatMessage)
+	if err != nil {
+		return fmt.Errorf("could not send initial request to server: %w", err)
+	}
+
 	errChForHeartbeat := make(chan error)
-	errChForInitialRequest := make(chan error)
+	errChForServerRequest := make(chan error)
 	go func() {
-		for {
-			select {
-			case <-tickerForHeartbeat.C:
-				_, heartbeatErr := conn.Write((heartbeatMessage))
+		for range tickerForHeartbeat.C {				
+			_, heartbeatErr := c.ConnToServer.Write(heartbeatMessage)
 				if heartbeatErr != nil {
 					errChForHeartbeat <- heartbeatErr
 				}
 			}
-		}
-	}()
+		}()
 	go func() {
 		for {
-			select {
-			case <-tickerForHeartbeat.C:
-				buf := make([]byte, 1500)
-				_, err := conn.Write(buf)
-				if err != nil {
-					errChForInitialRequest <- err
+			buf := make([]byte, 1500)
+			n, err := c.ConnToServer.Read(buf)
+			if err != nil {
+				errChForServerRequest <- err
+			}
+			currentNetworkMap := make([]netip.AddrPort, 0)
+			err = json.Unmarshal(buf[:n], &currentNetworkMap)
+			if err != nil {
+				errChForServerRequest <- err
+			}
+
+			for _, addr := range currentNetworkMap {
+				if !slices.Contains(c.NetworkMap, addr) {
+					c.NetworkMap = append(c.NetworkMap, addr)
+					conn, err := net.Dial("udp", addr.String())
+					if err != nil {
+						log.Println("error dialing to peer:", err)
+						continue
+					}
+					c.PeerConnections = append(c.PeerConnections, conn)
 				}
 			}
 		}
@@ -73,8 +90,15 @@ func (c *Client) StartClient() error {
 		case e := <-errChForHeartbeat:
 			log.Println("error from heartbeat:", e)
 
-		case e := <-errChForInitialRequest:
+		case e := <-errChForServerRequest:
 			log.Println("error from initial request:", e)
 		}
+	}
+}
+
+func (c *Client) Stop() {
+	c.ConnToServer.Close()
+	for _, conn := range c.PeerConnections {
+		conn.Close()
 	}
 }
