@@ -33,7 +33,7 @@ func (s *Server) Start() {
 	fmt.Println("Listening for connections...")
 	defer s.Stop()
 	for {
-		buf := make([]byte, 1500)
+		buf := make([]byte, 65535)
 		n, addr, err := s.ServerListenConn.ReadFromUDP(buf)
 		buf = buf[:n]
 		if err != nil {
@@ -46,7 +46,7 @@ func (s *Server) Start() {
 			log.Println(fmt.Errorf("error during reading udp buffer: %w", err))
 			continue
 		}
-		var isNewMember = s.addAddress(message.NetworkName, addr)
+		var isNewMember = s.addAddressAndDetermineExistence(message.NetworkName, addr)
 
 		if isNewMember {
 			resp, err := json.Marshal(s.NetworkTopology[message.NetworkName])
@@ -68,7 +68,7 @@ func (s *Server) Start() {
 	}
 }
 
-func (s *Server) addAddress(networkName string, addr *net.UDPAddr) bool {
+func (s *Server) addAddressAndDetermineExistence(networkName string, addr *net.UDPAddr) bool {
 	s.Lock.Lock()
 	defer s.Lock.Unlock()
 
@@ -77,7 +77,7 @@ func (s *Server) addAddress(networkName string, addr *net.UDPAddr) bool {
 			return false
 		}
 	}
-	//Add AddrPort if we have never seen it before
+
 	log.Printf("New peer for network %s detected: %v:%d", networkName, addr.IP.To4(), addr.Port)
 	s.NetworkTopology[networkName] = append(s.NetworkTopology[networkName], addr.AddrPort())
 	return true

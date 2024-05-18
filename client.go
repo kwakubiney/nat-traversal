@@ -51,16 +51,16 @@ func (c *Client) StartClient() error {
 	errChForHeartbeat := make(chan error)
 	errChForServerRequest := make(chan error)
 	go func() {
-		for range tickerForHeartbeat.C {				
+		for range tickerForHeartbeat.C {
 			_, heartbeatErr := c.ConnToServer.Write(heartbeatMessage)
-				if heartbeatErr != nil {
-					errChForHeartbeat <- heartbeatErr
-				}
+			if heartbeatErr != nil {
+				errChForHeartbeat <- heartbeatErr
 			}
-		}()
+		}
+	}()
 	go func() {
 		for {
-			buf := make([]byte, 1500)
+			buf := make([]byte, 65535)
 			n, err := c.ConnToServer.Read(buf)
 			if err != nil {
 				errChForServerRequest <- err
@@ -79,6 +79,15 @@ func (c *Client) StartClient() error {
 						log.Println("error dialing to peer:", err)
 						continue
 					}
+					//send your tun address to the peer after dialing
+					//you know the remote address so send tun ip via udp
+					//you should also listen on the same connection for a reply
+					//associate the tun with netIP.AddrPort received
+					//maybe data structure should be map[tunIP]*conn
+					//is udp reliable for this? is there a more reliable protocol?
+
+					//who controls who? who sends the tun ip first?
+					//what if the peer is behind a NAT?
 					c.PeerConnections = append(c.PeerConnections, conn)
 				}
 			}
