@@ -20,6 +20,7 @@ func main() {
 	flag.StringVar(&clientConfig.DestinationAddress, "s", "64.226.68.23:1234", "server address")
 	flag.StringVar(&serverConfig.LocalAddress, "l", "1234", "local address")
 	flag.StringVar(&clientConfig.NetworkName, "n", "A", "network you want to connect to")
+	flag.StringVar(&clientConfig.ClientTunIP, "ip", "", "your vpn ip subnet")
 	flag.BoolVar(&isServer, "srv", false, "server mode")
 
 	flag.Parse()
@@ -43,6 +44,11 @@ func main() {
 		server.Start()
 
 	} else {
+		if clientConfig.ClientTunIP == "" {
+			log.Println("VPN IP not set.")
+			flag.PrintDefaults()
+			os.Exit(1)
+		}
 		conn, err := net.Dial("udp", clientConfig.DestinationAddress)
 		if err != nil {
 			log.Printf("error dialing server: %v", err)

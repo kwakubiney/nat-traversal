@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/songgao/water"
 	"log"
+	"math/rand"
 	"net"
 	"net/netip"
 	"slices"
@@ -16,6 +18,8 @@ type Client struct {
 	NetworkMap      []netip.AddrPort
 	PeerConnections []net.Conn
 	Config          ClientConfig
+	TunInterface    *water.Interface
+	VpnIp           netip.Addr
 }
 
 type Heartbeat struct {
@@ -34,8 +38,35 @@ func NewClient(config ClientConfig, duration time.Duration, conn net.Conn) Clien
 
 func (c *Client) StartClient() error {
 	tickerForHeartbeat := time.NewTicker(c.Duration)
-	defer c.Stop()
+	defer c.stop()
 	defer tickerForHeartbeat.Stop()
+
+	err := c.SetTunOnDevice()
+	if err != nil {
+		return err
+	}
+	err = c.AssignIPToTun()
+	if err != nil {
+		return err
+	}
+
+	err = c.CreateTunnelRoute()
+	if err != nil {
+		return err
+	}
+
+	//todo: I am not sure if there is a better way to get netIP type from a cidr
+	ip, _, err := net.ParseCIDR(c.Config.ClientTunIP)
+	if err != nil {
+		return err
+	}
+
+	addr, err := netip.ParseAddr(ip.String())
+	if err != nil {
+		return err
+	}
+
+	c.VpnIp = addr
 
 	heartbeatMessage, err := json.Marshal(Heartbeat{NetworkName: c.Config.NetworkName})
 
@@ -74,11 +105,6 @@ func (c *Client) StartClient() error {
 			for _, addr := range currentNetworkMap {
 				if !slices.Contains(c.NetworkMap, addr) {
 					c.NetworkMap = append(c.NetworkMap, addr)
-					conn, err := net.Dial("udp", addr.String())
-					if err != nil {
-						log.Println("error dialing to peer:", err)
-						continue
-					}
 					//send your tun address to the peer after dialing
 					//you know the remote address so send tun ip via udp
 					//you should also listen on the same connection for a reply
@@ -88,6 +114,20 @@ func (c *Client) StartClient() error {
 
 					//who controls who? who sends the tun ip first?
 					//what if the peer is behind a NAT?
+
+					//true represents server
+					if determineClientServer() {
+						//wait for client to connect
+					} else {
+						//connect to client
+						//we have to associate this conn with a tun
+						conn, err := net.Dial("udp", addr.String())
+						if err != nil {
+							log.Println("error dialing to peer:", err)
+							continue
+						}
+					}
+
 					c.PeerConnections = append(c.PeerConnections, conn)
 				}
 			}
@@ -105,9 +145,17 @@ func (c *Client) StartClient() error {
 	}
 }
 
-func (c *Client) Stop() {
+func (c *Client) stop() {
 	c.ConnToServer.Close()
 	for _, conn := range c.PeerConnections {
 		conn.Close()
 	}
+	c.TunInterface.Close()
+}
+
+func determineClientServer() bool {
+	x := []int{1, -1}
+	rand.Seed(time.Now().UnixNano())
+	randomIndex := rand.Intn(len(x))
+	return x[randomIndex] == 1
 }

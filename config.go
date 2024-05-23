@@ -6,6 +6,7 @@ type ClientConfig struct {
 	Global             bool
 	ServerMode         bool
 	NetworkName        string
+	ClientTunIP        string
 }
 
 type ServerConfig struct {
