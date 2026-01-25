@@ -43,11 +43,20 @@ func main() {
 		server.Start()
 
 	} else {
-		conn, err := net.Dial("udp", clientConfig.DestinationAddress)
+		serverAddr, err := net.ResolveUDPAddr("udp", clientConfig.DestinationAddress)
 		if err != nil {
-			log.Printf("error dialing server: %v", err)
+			log.Fatalf("error resolving server address: %v", err)
 		}
-		var client = NewClient(clientConfig, 200*time.Second, conn)
+
+		// Listen on a random local port (Port: 0)
+		conn, err := net.ListenUDP("udp", &net.UDPAddr{IP: net.IPv4zero, Port: 0})
+		if err != nil {
+			log.Printf("error starting listener: %v", err)
+		}
+
+		log.Printf("Client listening on %s", conn.LocalAddr().String())
+
+		var client = NewClient(clientConfig, 20*time.Second, conn, serverAddr)
 
 		err = client.StartClient()
 		if err != nil {
