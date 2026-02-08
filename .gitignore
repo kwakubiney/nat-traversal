@@ -1,4 +1,28 @@
-./idea
-/idea
-idea
-**/. idea
+# IDE
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Examples (demo code, not core project)
+examples/
+demo/
+
+# Binaries
+nat-traversal
+nat-traversal-linux
+nat-client-linux
+nat-client-mac
+nat-demo-v6
+
+# Test scripts
+test_local_demo.sh
+
+# Misc
+skill.md
+
+# Presentation files
+DEMO-SETUP.md
+presentation.md
+slides-nat-traversal.md

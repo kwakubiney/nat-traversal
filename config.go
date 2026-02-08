@@ -1,14 +1,12 @@
 package main
 
 type ClientConfig struct {
-	LocalAddress       string
-	DestinationAddress string
-	Global             bool
-	ServerMode         bool
 	NetworkName        string
+	DestinationAddress string
+	Name               string
+	Interactive        bool
 }
 
 type ServerConfig struct {
 	LocalAddress string
-	LocalPort    string
 }
